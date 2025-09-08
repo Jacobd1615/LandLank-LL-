@@ -15,7 +15,7 @@ db = SQLAlchemy(model_class=Base)
 
 
 class Admin(db.Model):
-    """System administrators with full access"""
+    """System administrators with full system control and oversight"""
 
     __tablename__ = "admins"
 
@@ -25,24 +25,74 @@ class Admin(db.Model):
     )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     admin_email: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
-    admin_role: Mapped[str] = mapped_column(String(50), default="ADMIN")
+
+    # Enhanced admin roles and hierarchy
+    admin_role: Mapped[str] = mapped_column(
+        String(50), default="SUPER_ADMIN"
+    )  # SUPER_ADMIN, ADMIN, SECURITY_ADMIN
+    clearance_level: Mapped[int] = mapped_column(
+        Integer, default=5
+    )  # Highest clearance level
+
+    # Full system permissions
+    can_create_programs: Mapped[bool] = mapped_column(default=True)
+    can_delete_programs: Mapped[bool] = mapped_column(default=True)
+    can_suspend_users: Mapped[bool] = mapped_column(default=True)
+    can_override_security: Mapped[bool] = mapped_column(default=True)
+    can_access_all_logs: Mapped[bool] = mapped_column(default=True)
+    can_modify_system_config: Mapped[bool] = mapped_column(default=True)
+    can_emergency_shutdown: Mapped[bool] = mapped_column(default=True)
+    can_manage_organizations: Mapped[bool] = mapped_column(default=True)
+    can_view_all_transactions: Mapped[bool] = mapped_column(default=True)
+    can_force_token_redistribution: Mapped[bool] = mapped_column(default=True)
+    can_reset_user_passwords: Mapped[bool] = mapped_column(default=True)
+    can_access_raw_data: Mapped[bool] = mapped_column(default=True)
+
+    # Geographic oversight (admins can override all area restrictions)
+    unrestricted_area_access: Mapped[bool] = mapped_column(default=True)
+    authorized_regions: Mapped[str] = mapped_column(
+        String(1000), default="ALL"
+    )  # JSON array or "ALL"
+
+    # Security and monitoring
+    mfa_enabled: Mapped[bool] = mapped_column(
+        default=True
+    )  # Multi-factor authentication required
+    ip_whitelist: Mapped[str] = mapped_column(
+        String(500), nullable=True
+    )  # JSON array of allowed IPs
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    account_locked: Mapped[bool] = mapped_column(default=False)
+
+    # Activity tracking
     created_at: Mapped[date] = mapped_column(Date, nullable=False)
     last_login: Mapped[date] = mapped_column(Date, nullable=True)
+    last_action_timestamp: Mapped[date] = mapped_column(Date, nullable=True)
+    total_actions_performed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Status and accountability
     is_active: Mapped[bool] = mapped_column(default=True)
+    created_by_admin_id: Mapped[str] = mapped_column(
+        String(255), nullable=True
+    )  # Admin who created this account
+    notes: Mapped[str] = mapped_column(String(1000), nullable=True)  # Internal notes
 
 
-class Staff(db.Model):
-    """Staff members with limited access"""
+class Employee(db.Model):
+    """General system employees with role-based access"""
 
-    __tablename__ = "staff"
+    __tablename__ = "employees"
 
-    staff_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    staff_username: Mapped[str] = mapped_column(
+    employee_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    employee_username: Mapped[str] = mapped_column(
         String(100), nullable=False, unique=True
     )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    staff_email: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
-    staff_role: Mapped[str] = mapped_column(String(50), default="STAFF")
+    employee_email: Mapped[str] = mapped_column(
+        String(200), nullable=False, unique=True
+    )
+    employee_role: Mapped[str] = mapped_column(String(50), default="EMPLOYEE")
+    login_location_IP: Mapped[int] = mapped_column(Integer, nullable=False)
     department: Mapped[str] = mapped_column(String(100), nullable=True)
     created_at: Mapped[date] = mapped_column(Date, nullable=False)
     last_login: Mapped[date] = mapped_column(Date, nullable=True)
@@ -61,6 +111,7 @@ class Client(db.Model):
     area_code: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[date] = mapped_column(Date, nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
+    login_location_IP: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # Relationships
     tokens = relationship("Token", back_populates="client")
@@ -161,9 +212,9 @@ class VerificationLog(db.Model):
         String(50), ForeignKey("kiosks.kiosk_id"), nullable=False
     )
 
-    # UN staff verification
-    un_staff_id: Mapped[str] = mapped_column(String(100), nullable=True)
-    staff_verification_photo_hash: Mapped[str] = mapped_column(
+    # Field worker verification
+    supervisor_id: Mapped[str] = mapped_column(String(100), nullable=True)
+    supervisor_verification_photo_hash: Mapped[str] = mapped_column(
         String(255), nullable=True
     )
 
@@ -259,7 +310,7 @@ class Organization(db.Model):
     last_access: Mapped[date] = mapped_column(Date, nullable=True)
 
     # Relationships
-    staff_members = relationship("StaffMember", back_populates="organization")
+    supervisors = relationship("Supervisor", back_populates="organization")
 
 
 class Wallet(db.Model):
@@ -385,16 +436,18 @@ class Kiosk(db.Model):
     verification_logs = relationship("VerificationLog", back_populates="kiosk")
 
 
-class StaffMember(db.Model):
-    """Staff members with verification permissions"""
+class Supervisor(db.Model):
+    """Field supervisors with verification permissions and on-site responsibilities"""
 
-    __tablename__ = "staff_members"
+    __tablename__ = "supervisors"
 
-    staff_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    supervisor_id: Mapped[str] = mapped_column(String(255), primary_key=True)
 
     # Personal information
-    staff_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    staff_email: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    supervisor_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    supervisor_email: Mapped[str] = mapped_column(
+        String(200), nullable=False, unique=True
+    )
     employee_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
 
     # Organization details
@@ -403,23 +456,27 @@ class StaffMember(db.Model):
     )
     position_title: Mapped[str] = mapped_column(String(100), nullable=False)
     clearance_level: Mapped[int] = mapped_column(
-        Integer, default=1
-    )  # 1-5 clearance levels
+        Integer, default=2
+    )  # 1-5 clearance levels (supervisors start at 2)
 
-    # Permissions
+    # Permissions (limited compared to admins)
     can_verify_clients: Mapped[bool] = mapped_column(default=True)
-    can_suspend_programs: Mapped[bool] = mapped_column(default=False)
+    can_suspend_programs: Mapped[bool] = mapped_column(
+        default=False
+    )  # Only for specific cases
     can_access_logs: Mapped[bool] = mapped_column(default=True)
-    can_emergency_override: Mapped[bool] = mapped_column(default=False)
+    can_emergency_override: Mapped[bool] = mapped_column(
+        default=False
+    )  # Emergency only
 
     # Geographic authorization
     authorized_area_codes: Mapped[str] = mapped_column(
         String(500), nullable=False
-    )  # JSON array
+    )  # JSON array - limited to assigned areas
     current_assignment_location: Mapped[str] = mapped_column(String(100), nullable=True)
 
     # Status and activity
-    staff_status: Mapped[str] = mapped_column(
+    supervisor_status: Mapped[str] = mapped_column(
         String(20), default="ACTIVE"
     )  # ACTIVE, SUSPENDED, TERMINATED
     last_login: Mapped[date] = mapped_column(Date, nullable=True)
@@ -430,7 +487,7 @@ class StaffMember(db.Model):
     contract_expiration: Mapped[date] = mapped_column(Date, nullable=True)
 
     # Relationships
-    organization = relationship("Organization", back_populates="staff_members")
+    organization = relationship("Organization", back_populates="supervisors")
 
 
 class AlertLog(db.Model):
