@@ -1,13 +1,14 @@
 from flask import Flask
 from .extensions import ma, limiter, cache
 from .models import db
-from .blueprints.users import users_bp
+from .blueprints.admin import admin_bp
+from .blueprints.client import client_bp
 from .blueprints.programs import programs_bp
 from .blueprints.tokens import tokens_bp
 from .blueprints.verification import verification_bp
 from .blueprints.public_pool_tokens import public_pool_tokens_bp
 from .blueprints.kiosk_sessions import kiosk_sessions_bp
-from .blueprints.un_organizations import un_organizations_bp
+from .blueprints.organizations import organizations_bp
 from .blueprints.wallets import wallets_bp
 from .blueprints.transactions import transactions_bp
 from .blueprints.kiosks import kiosks_bp
@@ -37,13 +38,14 @@ def create_app(config_name):
     cache.init_app(app)
 
     # Import and register blueprints
-    app.register_blueprint(users_bp, url_prefix="/users")
+    app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(client_bp, url_prefix="/client")
     app.register_blueprint(programs_bp, url_prefix="/programs")
     app.register_blueprint(tokens_bp, url_prefix="/tokens")
     app.register_blueprint(verification_bp, url_prefix="/verification")
     app.register_blueprint(public_pool_tokens_bp, url_prefix="/public-pool-tokens")
     app.register_blueprint(kiosk_sessions_bp, url_prefix="/kiosk-sessions")
-    app.register_blueprint(un_organizations_bp, url_prefix="/un-organizations")
+    app.register_blueprint(organizations_bp, url_prefix="/organizations")
     app.register_blueprint(wallets_bp, url_prefix="/wallets")
     app.register_blueprint(transactions_bp, url_prefix="/transactions")
     app.register_blueprint(kiosks_bp, url_prefix="/kiosks")

@@ -11,32 +11,61 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 
 
-# Define models for LandLink Kiosk-Based Verification System
+# Define models for LandLink System
 
 
-class User(db.Model):
-    """Displaced individuals eligible for compensation"""
+class Admin(db.Model):
+    """System administrators with full access"""
 
-    __tablename__ = "users"
+    __tablename__ = "admins"
 
-    # Primary identifier (hashed for privacy)
-    hashed_user_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-
-    # All personal data stored as hashes (privacy compliance)
-    hashed_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    hashed_gov_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    hashed_verification_answers: Mapped[str] = mapped_column(
-        String(500), nullable=False
+    admin_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    admin_username: Mapped[str] = mapped_column(
+        String(100), nullable=False, unique=True
     )
-    photo_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    # Metadata
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    admin_email: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    admin_role: Mapped[str] = mapped_column(String(50), default="ADMIN")
     created_at: Mapped[date] = mapped_column(Date, nullable=False)
+    last_login: Mapped[date] = mapped_column(Date, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+
+class Staff(db.Model):
+    """Staff members with limited access"""
+
+    __tablename__ = "staff"
+
+    staff_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    staff_username: Mapped[str] = mapped_column(
+        String(100), nullable=False, unique=True
+    )
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    staff_email: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    staff_role: Mapped[str] = mapped_column(String(50), default="STAFF")
+    department: Mapped[str] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[date] = mapped_column(Date, nullable=False)
+    last_login: Mapped[date] = mapped_column(Date, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+
+class Client(db.Model):
+    """Clients or beneficiaries of the system"""
+
+    __tablename__ = "clients"
+
+    client_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    client_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    client_email: Mapped[str] = mapped_column(String(200), nullable=True)
+    client_phone: Mapped[str] = mapped_column(String(50), nullable=True)
     area_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[date] = mapped_column(Date, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True)
 
     # Relationships
-    tokens = relationship("Token", back_populates="user")
-    verification_logs = relationship("VerificationLog", back_populates="user")
+    tokens = relationship("Token", back_populates="client")
+    verification_logs = relationship("VerificationLog", back_populates="client")
+    wallets = relationship("Wallet", back_populates="client")
 
 
 class Program(db.Model):
@@ -74,9 +103,7 @@ class Token(db.Model):
     token_id: Mapped[str] = mapped_column(String(255), primary_key=True)
 
     # Foreign keys
-    hashed_user_id: Mapped[str] = mapped_column(
-        String(255), ForeignKey("users.hashed_user_id")
-    )
+    client_id: Mapped[str] = mapped_column(String(255), ForeignKey("clients.client_id"))
     program_id: Mapped[str] = mapped_column(
         String(255), ForeignKey("programs.hashed_program_id")
     )
@@ -97,8 +124,9 @@ class Token(db.Model):
     last_redemption: Mapped[date] = mapped_column(Date, nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="tokens")
+    client = relationship("Client", back_populates="tokens")
     program = relationship("Program", back_populates="tokens")
+    transactions = relationship("Transaction", back_populates="token")
 
 
 class VerificationLog(db.Model):
@@ -109,8 +137,8 @@ class VerificationLog(db.Model):
     log_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # Foreign keys
-    hashed_user_id: Mapped[str] = mapped_column(
-        String(255), ForeignKey("users.hashed_user_id"), nullable=True
+    client_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("clients.client_id"), nullable=True
     )
     program_id: Mapped[str] = mapped_column(String(255), nullable=False)
 
@@ -129,7 +157,9 @@ class VerificationLog(db.Model):
 
     # Kiosk and location data
     kiosk_location: Mapped[str] = mapped_column(String(100), nullable=False)
-    kiosk_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    kiosk_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("kiosks.kiosk_id"), nullable=False
+    )
 
     # UN staff verification
     un_staff_id: Mapped[str] = mapped_column(String(100), nullable=True)
@@ -141,7 +171,8 @@ class VerificationLog(db.Model):
     verification_timestamp: Mapped[date] = mapped_column(Date, nullable=False)
 
     # Relationships
-    user = relationship("User", back_populates="verification_logs")
+    client = relationship("Client", back_populates="verification_logs")
+    kiosk = relationship("Kiosk", back_populates="verification_logs")
 
 
 class PublicPoolToken(db.Model):
@@ -198,15 +229,18 @@ class KioskSession(db.Model):
     session_end: Mapped[date] = mapped_column(Date, nullable=True)
 
 
-class UnOrganization(db.Model):
-    """UN organizations with oversight access"""
+class Organization(db.Model):
+    """Organizations with oversight access"""
 
-    __tablename__ = "un_organizations"
+    __tablename__ = "organizations"
 
     org_id: Mapped[str] = mapped_column(String(100), primary_key=True)
 
     # Organization details
     organization_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    organization_type: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )  # NGO, GOVERNMENT, PRIVATE, etc.
     authorized_regions: Mapped[str] = mapped_column(
         String(500), nullable=False
     )  # JSON array of area codes
@@ -224,11 +258,41 @@ class UnOrganization(db.Model):
     registered_at: Mapped[date] = mapped_column(Date, nullable=False)
     last_access: Mapped[date] = mapped_column(Date, nullable=True)
 
+    # Relationships
+    staff_members = relationship("StaffMember", back_populates="organization")
+
 
 class Wallet(db.Model):
     """Digital wallet for token storage and transfers"""
 
     __tablename__ = "wallets"
+
+    wallet_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    # Client association
+    client_id: Mapped[str] = mapped_column(String(255), ForeignKey("clients.client_id"))
+
+    # Wallet details
+    wallet_balance: Mapped[float] = mapped_column(Float(precision=2), default=0.0)
+    total_tokens_received: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens_redeemed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Security
+    wallet_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    last_transaction_hash: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    # Metadata
+    created_at: Mapped[date] = mapped_column(Date, nullable=False)
+    last_activity: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Status
+    wallet_status: Mapped[str] = mapped_column(
+        String(20), default="ACTIVE"
+    )  # ACTIVE, SUSPENDED, CLOSED
+
+    # Relationships
+    client = relationship("Client", back_populates="wallets")
+    transactions = relationship("Transaction", back_populates="wallet")
 
 
 class Transaction(db.Model):
@@ -236,17 +300,137 @@ class Transaction(db.Model):
 
     __tablename__ = "transactions"
 
+    transaction_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    # Foreign keys
+    wallet_id: Mapped[str] = mapped_column(String(255), ForeignKey("wallets.wallet_id"))
+    token_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("tokens.token_id"), nullable=True
+    )
+    kiosk_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("kiosks.kiosk_id"), nullable=True
+    )
+
+    # Transaction details
+    transaction_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # REDEMPTION, TRANSFER, ISSUANCE
+    transaction_amount: Mapped[float] = mapped_column(
+        Float(precision=2), nullable=False
+    )
+    transaction_status: Mapped[str] = mapped_column(
+        String(20), default="PENDING"
+    )  # PENDING, COMPLETED, FAILED
+
+    # Security and verification
+    transaction_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    verification_signature: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    # Location and timing
+    transaction_location: Mapped[str] = mapped_column(String(100), nullable=True)
+    transaction_timestamp: Mapped[date] = mapped_column(Date, nullable=False)
+    completed_at: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Failure handling
+    failure_reason: Mapped[str] = mapped_column(String(500), nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Relationships
+    wallet = relationship("Wallet", back_populates="transactions")
+    token = relationship("Token", back_populates="transactions")
+    kiosk = relationship("Kiosk", back_populates="transactions")
+
 
 class Kiosk(db.Model):
     """Physical kiosk location and status data"""
 
     __tablename__ = "kiosks"
 
+    kiosk_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    # Location details
+    kiosk_location: Mapped[str] = mapped_column(String(200), nullable=False)
+    area_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    gps_coordinates: Mapped[str] = mapped_column(String(100), nullable=True)
+    physical_address: Mapped[str] = mapped_column(String(300), nullable=True)
+
+    # Technical specifications
+    kiosk_model: Mapped[str] = mapped_column(String(100), nullable=True)
+    software_version: Mapped[str] = mapped_column(String(50), nullable=True)
+    camera_specs: Mapped[str] = mapped_column(String(200), nullable=True)
+
+    # Operational status
+    kiosk_status: Mapped[str] = mapped_column(
+        String(20), default="OFFLINE"
+    )  # ONLINE, OFFLINE, MAINTENANCE, ERROR
+    last_heartbeat: Mapped[date] = mapped_column(Date, nullable=True)
+    uptime_percentage: Mapped[float] = mapped_column(Float(precision=2), default=0.0)
+
+    # Capacity and usage
+    daily_transaction_limit: Mapped[int] = mapped_column(Integer, default=100)
+    current_daily_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_transactions_processed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Maintenance
+    last_maintenance: Mapped[date] = mapped_column(Date, nullable=True)
+    next_scheduled_maintenance: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Installation details
+    installed_date: Mapped[date] = mapped_column(Date, nullable=False)
+    installed_by_org: Mapped[str] = mapped_column(String(100), nullable=True)
+
+    # Relationships
+    sessions = relationship("KioskSession", back_populates="kiosk")
+    transactions = relationship("Transaction", back_populates="kiosk")
+    verification_logs = relationship("VerificationLog", back_populates="kiosk")
+
 
 class StaffMember(db.Model):
-    """UN staff verification permissions"""
+    """Staff members with verification permissions"""
 
     __tablename__ = "staff_members"
+
+    staff_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    # Personal information
+    staff_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    staff_email: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    employee_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+
+    # Organization details
+    organization_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("organizations.org_id")
+    )
+    position_title: Mapped[str] = mapped_column(String(100), nullable=False)
+    clearance_level: Mapped[int] = mapped_column(
+        Integer, default=1
+    )  # 1-5 clearance levels
+
+    # Permissions
+    can_verify_clients: Mapped[bool] = mapped_column(default=True)
+    can_suspend_programs: Mapped[bool] = mapped_column(default=False)
+    can_access_logs: Mapped[bool] = mapped_column(default=True)
+    can_emergency_override: Mapped[bool] = mapped_column(default=False)
+
+    # Geographic authorization
+    authorized_area_codes: Mapped[str] = mapped_column(
+        String(500), nullable=False
+    )  # JSON array
+    current_assignment_location: Mapped[str] = mapped_column(String(100), nullable=True)
+
+    # Status and activity
+    staff_status: Mapped[str] = mapped_column(
+        String(20), default="ACTIVE"
+    )  # ACTIVE, SUSPENDED, TERMINATED
+    last_login: Mapped[date] = mapped_column(Date, nullable=True)
+    total_verifications_performed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Employment details
+    hire_date: Mapped[date] = mapped_column(Date, nullable=False)
+    contract_expiration: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Relationships
+    organization = relationship("Organization", back_populates="staff_members")
 
 
 class AlertLog(db.Model):
@@ -254,8 +438,101 @@ class AlertLog(db.Model):
 
     __tablename__ = "alert_logs"
 
+    alert_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Alert classification
+    alert_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # SECURITY, SYSTEM, VIOLATION, MAINTENANCE
+    alert_severity: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # LOW, MEDIUM, HIGH, CRITICAL
+    alert_category: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # FRAUD_DETECTION, SYSTEM_ERROR, etc.
+
+    # Alert content
+    alert_title: Mapped[str] = mapped_column(String(200), nullable=False)
+    alert_description: Mapped[str] = mapped_column(String(1000), nullable=False)
+    alert_data: Mapped[str] = mapped_column(
+        String(2000), nullable=True
+    )  # JSON data related to alert
+
+    # Source information
+    source_system: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )  # KIOSK, VERIFICATION, ADMIN, etc.
+    source_id: Mapped[str] = mapped_column(
+        String(255), nullable=True
+    )  # ID of the source entity
+    affected_user_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    affected_program_id: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    # Geographic information
+    alert_location: Mapped[str] = mapped_column(String(100), nullable=True)
+    area_code: Mapped[str] = mapped_column(String(50), nullable=True)
+
+    # Timing
+    alert_timestamp: Mapped[date] = mapped_column(Date, nullable=False)
+    alert_expiry: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Status and handling
+    alert_status: Mapped[str] = mapped_column(
+        String(20), default="OPEN"
+    )  # OPEN, ACKNOWLEDGED, RESOLVED, DISMISSED
+    acknowledged_by: Mapped[str] = mapped_column(String(255), nullable=True)
+    acknowledged_at: Mapped[date] = mapped_column(Date, nullable=True)
+    resolved_by: Mapped[str] = mapped_column(String(255), nullable=True)
+    resolved_at: Mapped[date] = mapped_column(Date, nullable=True)
+    resolution_notes: Mapped[str] = mapped_column(String(1000), nullable=True)
+
+    # Escalation
+    escalated: Mapped[bool] = mapped_column(default=False)
+    escalated_to: Mapped[str] = mapped_column(String(255), nullable=True)
+    escalation_reason: Mapped[str] = mapped_column(String(500), nullable=True)
+
 
 class SystemConfig(db.Model):
     """Global system settings and configuration"""
 
     __tablename__ = "system_config"
+
+    config_key: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    # Configuration value and metadata
+    config_value: Mapped[str] = mapped_column(String(1000), nullable=False)
+    config_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # STRING, INTEGER, FLOAT, BOOLEAN, JSON
+    config_description: Mapped[str] = mapped_column(String(500), nullable=True)
+
+    # Configuration categories
+    config_category: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )  # SECURITY, LIMITS, AI, KIOSK, etc.
+    config_subcategory: Mapped[str] = mapped_column(String(100), nullable=True)
+
+    # Access control
+    requires_admin: Mapped[bool] = mapped_column(default=True)
+    requires_restart: Mapped[bool] = mapped_column(default=False)
+    is_sensitive: Mapped[bool] = mapped_column(default=False)  # Hide value in logs/UI
+
+    # Validation
+    min_value: Mapped[str] = mapped_column(String(100), nullable=True)
+    max_value: Mapped[str] = mapped_column(String(100), nullable=True)
+    allowed_values: Mapped[str] = mapped_column(
+        String(1000), nullable=True
+    )  # JSON array for enum values
+    validation_regex: Mapped[str] = mapped_column(String(200), nullable=True)
+
+    # Change tracking
+    default_value: Mapped[str] = mapped_column(String(1000), nullable=False)
+    last_modified_by: Mapped[str] = mapped_column(String(255), nullable=True)
+    last_modified_at: Mapped[date] = mapped_column(Date, nullable=True)
+    created_at: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Environment specific
+    environment: Mapped[str] = mapped_column(
+        String(20), default="ALL"
+    )  # ALL, DEV, TEST, PROD
+    version_introduced: Mapped[str] = mapped_column(String(20), nullable=True)

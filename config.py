@@ -1,5 +1,5 @@
 class DevelopmentConfig:
-    SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:240179@localhost/landlink_db"
+    SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:240179@localhost/LandLink_db"
     DEBUG = True
     SECRET_KEY = "x"
 
