@@ -1,0 +1,1 @@
+# PublicPoolToken schemas
