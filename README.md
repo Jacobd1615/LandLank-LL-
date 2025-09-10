@@ -20,13 +20,13 @@ The platform implements role-based access control, comprehensive audit trails, a
 ### Core Platform Components
 
 **1. Enhanced Administrative Control System**
-- **Super-Admin Framework:** Multi-tiered administrative hierarchy with 15+ granular permission controls
+- **CEO Administrative Framework:** Multi-tiered administrative hierarchy with 15+ granular permission controls
 - **Security Management:** Account lockout protection, multi-factor authentication, and IP whitelisting capabilities
 - **System Oversight:** Emergency shutdown capabilities, system configuration management, and audit trail access
 - **User Management:** Comprehensive user suspension, password reset, and account lifecycle management
 
 **2. Role-Based Access Control Infrastructure**
-- **Admin Roles:** SUPER_ADMIN, ADMIN, and SECURITY_ADMIN classifications with distinct permission matrices
+- **Admin Roles:** CEO, ADMIN, and SECURITY_ADMIN classifications with distinct permission matrices
 - **Employee Management:** Department-based access control with location-based IP tracking
 - **Field Supervision:** Supervisor roles with area-restricted verification authority and clearance levels
 - **Client Protection:** Secure client data management with encrypted personal information storage
@@ -74,7 +74,7 @@ The platform implements role-based access control, comprehensive audit trails, a
 ### Access Control and Authorization
 
 **Role-Based Permission Matrix**
-- **Super Administrators:** Full system control including security overrides and emergency protocols
+- **Chief Executive Officers (CEO):** Full system control including security overrides and emergency protocols
 - **System Administrators:** User management, program oversight, and configuration management
 - **Security Administrators:** Audit access, security monitoring, and incident response capabilities
 - **Field Supervisors:** Limited verification authority with area-restricted access controls
@@ -117,7 +117,7 @@ class Admin(db.Model):
     admin_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     admin_username: Mapped[str] = mapped_column(String(100), unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    admin_role: Mapped[str] = mapped_column(String(50), default="SUPER_ADMIN")
+    admin_role: Mapped[str] = mapped_column(String(50), default="CEO")
     clearance_level: Mapped[int] = mapped_column(Integer, default=5)
     
     # Comprehensive Permission Matrix
@@ -155,7 +155,7 @@ CREATE TABLE admins (
     admin_id VARCHAR(255) PRIMARY KEY,
     admin_username VARCHAR(100) UNIQUE NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
-    admin_role VARCHAR(50) DEFAULT 'SUPER_ADMIN',
+    admin_role VARCHAR(50) DEFAULT 'CEO',
     clearance_level INT DEFAULT 5,
     failed_login_attempts INT DEFAULT 0,
     account_locked BOOLEAN DEFAULT FALSE,

@@ -28,8 +28,8 @@ class Admin(db.Model):
 
     # Enhanced admin roles and hierarchy
     admin_role: Mapped[str] = mapped_column(
-        String(50), default="SUPER_ADMIN"
-    )  # SUPER_ADMIN, ADMIN, SECURITY_ADMIN
+        String(50), default="CEO"
+    )  # CEO, ADMIN, SECURITY_ADMIN
     clearance_level: Mapped[int] = mapped_column(
         Integer, default=5
     )  # Highest clearance level
@@ -263,7 +263,9 @@ class KioskSession(db.Model):
     session_id: Mapped[str] = mapped_column(String(255), primary_key=True)
 
     # Session details
-    kiosk_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    kiosk_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("kiosks.kiosk_id"), nullable=False
+    )
     hashed_user_id: Mapped[str] = mapped_column(String(255), nullable=True)
     session_status: Mapped[str] = mapped_column(
         String(20), nullable=False
@@ -278,6 +280,9 @@ class KioskSession(db.Model):
     session_start: Mapped[date] = mapped_column(Date, nullable=False)
     last_activity: Mapped[date] = mapped_column(Date, nullable=False)
     session_end: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Relationships
+    kiosk = relationship("Kiosk", back_populates="sessions")
 
 
 class Organization(db.Model):

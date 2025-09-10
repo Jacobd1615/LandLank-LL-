@@ -48,7 +48,7 @@ class AdminSchema(ma.SQLAlchemyAutoSchema):
 
     @validates("admin_role")
     def validate_admin_role(self, value, **kwargs):
-        allowed_roles = ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"]
+        allowed_roles = ["CEO", "ADMIN", "SECURITY_ADMIN"]
         if value not in allowed_roles:
             raise ValidationError(
                 f"Admin role must be one of: {', '.join(allowed_roles)}"
@@ -102,7 +102,7 @@ class AdminUpdateSchema(ma.SQLAlchemyAutoSchema):
 
     @validates("admin_role")
     def validate_admin_role(self, value, **kwargs):
-        allowed_roles = ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"]
+        allowed_roles = ["CEO", "ADMIN", "SECURITY_ADMIN"]
         if value not in allowed_roles:
             raise ValidationError(
                 f"Admin role must be one of: {', '.join(allowed_roles)}"
